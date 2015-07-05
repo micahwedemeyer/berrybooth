@@ -6,6 +6,7 @@ package main
 // #include <gphoto2/gphoto2-version.h>
 import "C"
 import "unsafe"
+import "fmt"
 
 func initCameraContext() *C.GPContext {
 	context := C.gp_context_new()
@@ -37,6 +38,19 @@ func cameraModel(camera *C.Camera) (string, int) {
 
 func isCameraConnected(*C.Camera, *C.GPContext) bool {
 	return false
+}
+
+func waitForCameraEvent(camera *C.Camera, context *C.GPContext, timeout int, handler func(int, string)) {
+	var eventType C.CameraEventType
+	var vp unsafe.Pointer
+	err := C.gp_camera_wait_for_event(camera, C.int(timeout), &eventType, &vp, context)
+
+	if err < 0 {
+		fmt.Printf(cameraErrToString(int(err)))
+	}
+
+	s := C.GoString((*C.char)(vp))
+	handler(int(eventType), s)
 }
 
 func cameraErrToString(err int) string {

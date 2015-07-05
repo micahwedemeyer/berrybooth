@@ -7,8 +7,8 @@ import "fmt"
 // #include <gphoto2.h>
 // #include <gphoto2/gphoto2-version.h>
 import "C"
-import "unsafe"
 import "github.com/asaskevich/EventBus"
+import "time"
 
 func handleNewImage(filename string) {
 	fmt.Printf("New image: %s\n", filename)
@@ -21,7 +21,7 @@ func initEventBus() EventBus.EventBus {
 	return *bus
 }
 
-func setupGphoto2(bus EventBus.EventBus) {
+func setupGphoto2(bus EventBus.EventBus) (*C.Camera, *C.GPContext) {
 	context := initCameraContext()
 	camera, err := initCamera(context)
 
@@ -30,18 +30,6 @@ func setupGphoto2(bus EventBus.EventBus) {
 	}
 
 	bus.Publish("camera:init", camera, context)
-
-	var abilities C.CameraAbilities
-	C.gp_camera_get_abilities(camera, &abilities)
-
-	var model = C.GoBytes(unsafe.Pointer(&abilities.model), 255)
-	fmt.Printf("Model: %s\n", model)
-
-	var text C.CameraText
-	C.gp_camera_get_about(camera, &text, context)
-
-	var s = C.GoBytes(unsafe.Pointer(&text.text), 255)
-	fmt.Printf("Summary: %s\n", s)
 
 	var rootFolder = C.CString("/")
 	var folderList *C.CameraList
@@ -55,7 +43,9 @@ func setupGphoto2(bus EventBus.EventBus) {
 	var folderCount = int(C.gp_list_count(folderList))
 	fmt.Printf("There are %d files at the root.\n", folderCount)
 
-	C.gp_camera_trigger_capture(camera, context)
+	//C.gp_camera_trigger_capture(camera, context)
+
+	return camera, context
 }
 
 func handleCameraSetup(camera *C.Camera, context *C.GPContext) {
@@ -68,5 +58,23 @@ func handleCameraSetup(camera *C.Camera, context *C.GPContext) {
 func main() {
 	var bus = initEventBus()
 	bus.Subscribe("camera:init", handleCameraSetup)
-	setupGphoto2(bus)
+	camera, context := setupGphoto2(bus)
+
+	go func() {
+		for {
+			handler := func(eventType int, data string) {
+				if eventType == C.GP_EVENT_FILE_ADDED {
+					fmt.Printf("File added!\n")
+					fmt.Printf("File: %s\n", data)
+				}
+			}
+			waitForCameraEvent(camera, context, 1000, handler)
+		}
+	}()
+
+	fmt.Printf("Waiting for event\n")
+	//waitForCameraEvent(camera, context, 2000)
+	waitForPhotoCapture(camera, context, 2000)
+	time.Sleep(time.Duration(3) * time.Second)
+	fmt.Printf("Done\n")
 }
