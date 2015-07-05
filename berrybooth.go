@@ -9,6 +9,7 @@ import "fmt"
 import "C"
 import "github.com/asaskevich/EventBus"
 import "time"
+import "github.com/micahwedemeyer/gphoto2go"
 
 func handleNewImage(filename string) {
 	fmt.Printf("New image: %s\n", filename)
@@ -21,35 +22,38 @@ func initEventBus() EventBus.EventBus {
 	return *bus
 }
 
-func setupGphoto2(bus EventBus.EventBus) (*C.Camera, *C.GPContext) {
-	context := initCameraContext()
-	camera, err := initCamera(context)
+func setupGphoto2(bus EventBus.EventBus) *gphoto2.Camera {
+	camera := new(gphoto2.Camera)
+	err := camera.Init()
 
 	if err < 0 {
-		fmt.Printf(cameraErrToString(err))
+		fmt.Printf(gphoto2.CameraResultToString(err))
 	}
 
-	bus.Publish("camera:init", camera, context)
+	bus.Publish("camera:init", camera)
 
-	var rootFolder = C.CString("/")
-	var folderList *C.CameraList
-	C.gp_list_new(&folderList)
+	/*
+		var rootFolder = C.CString("/")
+		var folderList *C.CameraList
+		C.gp_list_new(&folderList)
 
-	var r = C.gp_camera_folder_list_folders(camera, rootFolder, folderList, context)
-	if r < 0 {
-		var err = C.GoString(C.gp_result_as_string(r))
-		fmt.Printf("Error: %s", err)
-	}
-	var folderCount = int(C.gp_list_count(folderList))
-	fmt.Printf("There are %d files at the root.\n", folderCount)
+		var r = C.gp_camera_folder_list_folders(camera, rootFolder, folderList, context)
+		if r < 0 {
+			var err = C.GoString(C.gp_result_as_string(r))
+			fmt.Printf("Error: %s", err)
+		}
+		var folderCount = int(C.gp_list_count(folderList))
+		fmt.Printf("There are %d files at the root.\n", folderCount)
 
-	//C.gp_camera_trigger_capture(camera, context)
+		//C.gp_camera_trigger_capture(camera, context)
 
-	return camera, context
+		return camera, context
+	*/
+	return camera
 }
 
-func handleCameraSetup(camera *C.Camera, context *C.GPContext) {
-	model, err := cameraModel(camera)
+func handleCameraSetup(camera *gphoto2.Camera) {
+	model, err := camera.Model()
 	if err >= 0 {
 		fmt.Printf("Model: %s\n", model)
 	}
@@ -58,7 +62,7 @@ func handleCameraSetup(camera *C.Camera, context *C.GPContext) {
 func main() {
 	var bus = initEventBus()
 	bus.Subscribe("camera:init", handleCameraSetup)
-	camera, context := setupGphoto2(bus)
+	camera := setupGphoto2(bus)
 
 	go func() {
 		for {
@@ -68,13 +72,11 @@ func main() {
 					fmt.Printf("File: %s\n", data)
 				}
 			}
-			waitForCameraEvent(camera, context, 1000, handler)
+			camera.WaitForCameraEvent(1000, handler)
 		}
 	}()
 
 	fmt.Printf("Waiting for event\n")
-	//waitForCameraEvent(camera, context, 2000)
-	waitForPhotoCapture(camera, context, 2000)
 	time.Sleep(time.Duration(3) * time.Second)
 	fmt.Printf("Done\n")
 }
