@@ -10,6 +10,8 @@ import "C"
 import "github.com/asaskevich/EventBus"
 import "time"
 import "github.com/micahwedemeyer/gphoto2go"
+import "io"
+import "os"
 
 func handleNewImage(filename string) {
 	fmt.Printf("New image: %s\n", filename)
@@ -64,19 +66,48 @@ func main() {
 	bus.Subscribe("camera:init", handleCameraSetup)
 	camera := setupGphoto2(bus)
 
-	go func() {
-		for {
-			handler := func(eventType int, data string) {
-				if eventType == C.GP_EVENT_FILE_ADDED {
-					fmt.Printf("File added!\n")
-					fmt.Printf("File: %s\n", data)
+	/*
+		go func() {
+			for {
+				handler := func(eventType int, data string) {
+					if eventType == C.GP_EVENT_FILE_ADDED {
+						fmt.Printf("File added!\n")
+						fmt.Printf("File: %s\n", data)
+					}
 				}
+				camera.WaitForCameraEvent(1000, handler)
 			}
-			camera.WaitForCameraEvent(1000, handler)
-		}
-	}()
+		}()
+		fmt.Printf("Waiting for event\n")
+	*/
 
-	fmt.Printf("Waiting for event\n")
-	time.Sleep(time.Duration(3) * time.Second)
+	/*
+		err := camera.TriggerCapture()
+		if err < 0 {
+			fmt.Printf("Capture Error: %s\n", gphoto2.CameraResultToString(err))
+		}
+	*/
+
+	time.Sleep(time.Duration(1) * time.Second)
+
+	folders := camera.RListFolders("/")
+	readers := make([]io.Reader, 20)
+	for _, folder := range folders {
+		fmt.Printf("Folder: %s\n", folder)
+
+		files, _ := camera.ListFiles(folder)
+		for _, fileName := range files {
+			fmt.Printf("File: %s\n", folder+"/"+fileName)
+			reader := camera.BufferedFileReader(folder, fileName)
+			readers = append(readers, reader)
+
+			fWriter, _ := os.Create("/Users/micah/tmp/" + fileName)
+			io.Copy(fWriter, reader)
+			fWriter.Close()
+
+			fmt.Printf("File read/write complete\n")
+		}
+	}
+
 	fmt.Printf("Done\n")
 }
