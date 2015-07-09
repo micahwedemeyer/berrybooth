@@ -6,7 +6,6 @@
 # Folders
 _obj
 _test
-log
 
 # Architecture specific extensions/prefixes
 *.[568vq]
@@ -23,3 +22,6 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+# Logs
+log/berrybooth.log
