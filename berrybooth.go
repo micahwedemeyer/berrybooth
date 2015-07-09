@@ -18,7 +18,7 @@ import (
 var bus *EventBus.EventBus
 
 func initLogger() {
-	f, _ := os.OpenFile("log.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	f, _ := os.OpenFile("log/berrybooth.txt", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	log.SetOutput(f)
 }
 
