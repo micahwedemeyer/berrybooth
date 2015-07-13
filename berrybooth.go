@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"github.com/asaskevich/EventBus"
 	"github.com/micahwedemeyer/gphoto2go"
+	"github.com/spf13/viper"
 	"io"
 	"log"
 	"os"
+	"path"
 	"time"
 )
 
@@ -20,6 +22,18 @@ var bus *EventBus.EventBus
 func initLogger() {
 	f, _ := os.OpenFile("log/berrybooth.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	log.SetOutput(f)
+}
+
+func initViper() {
+	// Read in the actual config.toml if available
+	viper.SetConfigName("config")
+
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil {
+		log.Fatalf("Error reading the config file: %s\n", err)
+	} else {
+		log.Printf("Config file read.")
+	}
 }
 
 func handleNewImage(filename string) {
@@ -57,7 +71,7 @@ func initCameraEventSource(camera *gphoto2go.Camera) {
 }
 
 func handleCaptureEvent(camera *gphoto2go.Camera, folder string, fileName string) {
-	path := "/Users/micah/tmp/" + fileName
+	path := path.Join(viper.GetString("photos.path"), fileName)
 	reader := camera.FileReader(folder, fileName)
 	fWriter, _ := os.Create(path)
 	io.Copy(fWriter, reader)
@@ -68,6 +82,7 @@ func handleCaptureEvent(camera *gphoto2go.Camera, folder string, fileName string
 
 func main() {
 	initLogger()
+	initViper()
 	log.Printf("Berrybooth Startup\n")
 	initEventBus()
 

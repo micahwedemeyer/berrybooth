@@ -1,0 +1,6 @@
+[photos]
+path = "/Users/micah/tmp/berrybooth"
+
+[grouping]
+prefix = "event_"
+time_window_seconds = 3
